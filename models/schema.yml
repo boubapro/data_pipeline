@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: src_housing_ext
+    schema: PUBLIC
+    database: SNOWFLAKE_LEARNING_DB
+    tables:
+      - name: loyer   # ← replace with your actual table
