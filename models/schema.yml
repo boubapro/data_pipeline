@@ -1,4 +1,7 @@
 version: 2
+models:
+  - name: src_housing_v2
+    description: "Modèle housing nettoyé"
 
 sources:
   - name: src_housing_ext
