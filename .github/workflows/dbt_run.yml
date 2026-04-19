@@ -2,12 +2,12 @@ name: dbt run daily
 
 on:
   schedule:
-    - cron: '10 12 * * *'      # tous les jours à 14h10 heure Paris été (UTC+2)
+    - cron: '30 12 * * *'      # tous les jours à 14h10 heure Paris été (UTC+2)
     # - cron: '10 13 * * *'   # tous les jours à 14h10 heure Paris hiver (UTC+1)
   workflow_dispatch:            # lancement manuel depuis GitHub
 
 env:
-  DBT_TAG: daily_14h10    # ← tag dbt | tous les jours à 14h10
+  DBT_TAG: daily_14h30    # ← tag dbt | tous les jours à 14h10
 
 jobs:
   dbt-run:
