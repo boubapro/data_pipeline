@@ -2,30 +2,51 @@ name: dbt run daily
 
 on:
   schedule:
-    - cron: '0 12 * * 0'
-  workflow_dispatch:
+    - cron: '10 12 * * *'      # tous les jours à 14h10 heure Paris été (UTC+2)
+    # - cron: '10 13 * * *'   # tous les jours à 14h10 heure Paris hiver (UTC+1)
+  workflow_dispatch:            # lancement manuel depuis GitHub
+
+env:
+  DBT_TAG: daily_14h10    # ← tag dbt | tous les jours à 14h10
 
 jobs:
   dbt-run:
     runs-on: ubuntu-latest
 
     steps:
+      # ─────────────────────────────────────────
+      # 1. Récupérer le code du repo
+      # ─────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # ─────────────────────────────────────────
+      # 2. Installer Python
+      # ─────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install dbt
-        run: pip install dbt-snowflake
+      # ─────────────────────────────────────────
+      # 3. Installer dbt Snowflake
+      # ─────────────────────────────────────────
+      - name: Install dbt-snowflake
+        run: |
+          pip install --upgrade pip
+          pip install dbt-snowflake
 
-      - name: Créer la clé privée
+      # ─────────────────────────────────────────
+      # 4. Créer la clé privée depuis le secret
+      # ─────────────────────────────────────────
+      - name: Créer la clé privée RSA
         run: |
           echo "${{ secrets.SNOWFLAKE_PRIVATE_KEY }}" > /tmp/rsa_key.p8
           chmod 600 /tmp/rsa_key.p8
 
+      # ─────────────────────────────────────────
+      # 5. Générer profiles.yml depuis les secrets
+      # ─────────────────────────────────────────
       - name: Créer profiles.yml
         run: |
           mkdir -p ~/.dbt
@@ -42,14 +63,43 @@ jobs:
                 warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
                 role: ${{ secrets.SNOWFLAKE_ROLE }}
                 threads: 4
+                transient: false
             target: dev
           EOF
 
-      - name: Install dbt dependencies
+      # ─────────────────────────────────────────
+      # 6. Vérifier la connexion Snowflake
+      # ─────────────────────────────────────────
+      - name: dbt debug
+        run: dbt debug
+
+      # ─────────────────────────────────────────
+      # 7. Installer les packages dbt (si packages.yml existe)
+      # ─────────────────────────────────────────
+      - name: dbt deps
         run: dbt deps
 
-      - name: Run dbt models
-        run: dbt run --select tag:daily
+      # ─────────────────────────────────────────
+      # 8. Lancer les modèles tagués sunday_14h
+      # ─────────────────────────────────────────
+      - name: dbt run
+        run: dbt run --select tag:${{ env.DBT_TAG }}
 
-      - name: Run dbt tests
-        run: dbt test --select tag:daily
+      # ─────────────────────────────────────────
+      # 9. Lancer les tests sur les modèles sunday_14h
+      # ─────────────────────────────────────────
+      - name: dbt test
+        run: dbt test --select tag:${{ env.DBT_TAG }}
+
+      # ─────────────────────────────────────────
+      # 10. Générer la documentation dbt
+      # ─────────────────────────────────────────
+      - name: dbt docs generate
+        run: dbt docs generate
+
+      # ─────────────────────────────────────────
+      # 11. Nettoyer la clé privée après le job
+      # ─────────────────────────────────────────
+      - name: Supprimer la clé privée
+        if: always()                             # même si le job échoue
+        run: rm -f /tmp/rsa_key.p8
