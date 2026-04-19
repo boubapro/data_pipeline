@@ -1,7 +1,7 @@
 {{
     config(
         materialized='table',
-        tags=['daily_14h10']
+        tags=['daily_14h50']
     )
 }}
 
