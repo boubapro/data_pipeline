@@ -1,7 +1,7 @@
 {{
     config(
         materialized='table',
-        tags=['daily_14h50']
+        tags=['every_30min']
     )
 }}
 
