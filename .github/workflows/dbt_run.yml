@@ -2,12 +2,12 @@ name: dbt run daily
 
 on:
   schedule:
-    - cron: '*/30 * * * *'    # toutes les 30 minutes
+    - cron: '0 12 * * 0'
     # - cron: '50 13 * * *'   # tous les jours à 14h50 heure Paris hiver (UTC+1)
   workflow_dispatch:
 
 env:
-  DBT_TAG: every_30min
+  DBT_TAG: sunday_14h
 
 jobs:
   dbt-run:
