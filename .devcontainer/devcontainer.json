@@ -1,0 +1,4 @@
+{
+  "name": "dbt pipeline",
+  "postCreateCommand": "pip install dbt-snowflake && sudo apt-get update && sudo apt-get install -y terraform awscli"
+}
