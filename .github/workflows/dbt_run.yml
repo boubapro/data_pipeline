@@ -1,0 +1,55 @@
+name: dbt run daily
+
+on:
+  schedule:
+    - cron: '30 9 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  dbt-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dbt
+        run: pip install dbt-snowflake
+
+      - name: Créer la clé privée
+        run: |
+          echo "${{ secrets.SNOWFLAKE_PRIVATE_KEY }}" > /tmp/rsa_key.p8
+          chmod 600 /tmp/rsa_key.p8
+
+      - name: Créer profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          data_pipeline:
+            outputs:
+              dev:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                private_key_path: /tmp/rsa_key.p8
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}
+                schema: ${{ secrets.SNOWFLAKE_SCHEMA }}
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                threads: 4
+            target: dev
+          EOF
+
+      - name: Install dbt dependencies
+        run: dbt deps
+
+      - name: Run dbt models
+        run: dbt run --select tag:daily
+
+      - name: Run dbt tests
+        run: dbt test --select tag:daily
