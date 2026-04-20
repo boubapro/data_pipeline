@@ -1,4 +1,4 @@
-name: string
+name: data_pipeline
 
 config-version: 2
 version: 1.2.2
