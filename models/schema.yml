@@ -1,7 +1,10 @@
 version: 2
 models:
   - name: src_housing_v2
-    description: "Modèle housing nettoyé"
+  description: "Modèle housing nettoyé"
+  config:
+      tags: ['every_30min']
+    
 
 sources:
   - name: src_housing_ext
