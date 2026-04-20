@@ -9,8 +9,25 @@ install:
 	pip install dbt-snowflake
 	@echo "✅ Tout est installé"
 
+setup-aws:
+	aws configure set aws_access_key_id $$AWS_ACCESS_KEY_ID
+	aws configure set aws_secret_access_key $$AWS_SECRET_ACCESS_KEY
+	aws configure set default.region $$AWS_DEFAULT_REGION
+	@echo "✅ AWS configuré"
+
+setup-keys:
+	echo "$$SNOWFLAKE_PRIVATE_KEY" > /workspaces/data_pipeline/rsa_key.p8
+	chmod 600 /workspaces/data_pipeline/rsa_key.p8
+	@echo "✅ Clé RSA restaurée"
+
+setup: install setup-aws setup-keys
+	@echo "✅ Environnement complet prêt"
+
 deploy:
 	bash aws/deploy.sh
 
 run:
 	dbt run --select tag:every_30min
+
+test:
+	dbt test --select tag:every_30min
