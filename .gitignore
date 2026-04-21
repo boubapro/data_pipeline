@@ -3,3 +3,7 @@ aws/.terraform.lock.hcl
 aws/*.tfstate
 aws/*.tfstate.backup
 aws/*.tfvars
+rsa_key.p8
+rsa_key.pub
+*.p8
+*.pem
