@@ -1,14 +1,14 @@
 version: 2
+
 models:
   - name: src_housing_v2
-  description: "Modèle housing nettoyé"
-  config:
+    description: "Modèle housing nettoyé"
+    config:
       tags: ['every_30min']
-    
 
 sources:
   - name: src_housing_ext
     schema: PUBLIC
     database: SNOWFLAKE_LEARNING_DB
     tables:
-      - name: loyer   # ← replace with your actual table
+      - name: loyer
