@@ -1,7 +1,6 @@
 {{
     config(
-        materialized='table',
-        tags=['sunday_14h']
+        materialized='table' 
     )
 }}
 
