@@ -1,0 +1,10 @@
+aws/.terraform/
+aws/*.tfstate
+aws/*.tfstate.backup
+aws/*.tfvars
+rsa_key.p8
+rsa_key.pub
+.git/
+target/
+dbt_packages/
+logs/
