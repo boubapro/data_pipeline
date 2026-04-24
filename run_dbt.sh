@@ -4,8 +4,8 @@ set -e
 echo "===== dbt run démarré : $(date) ====="
 
 # Clé privée depuis variable d'environnement AWS Secrets Manager
-echo "$SNOWFLAKE_PRIVATE_KEY" > /tmp/rsa_key.p8
-chmod 600 /tmp/rsa_key.p8
+echo "$SNOWFLAKE_PRIVATE_KEY" > /tmp/rsa_key_new.p8
+chmod 600 /tmp/rsa_key_new.p8
 
 # Créer profiles.yml
 mkdir -p ~/.dbt
