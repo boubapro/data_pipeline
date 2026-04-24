@@ -51,7 +51,7 @@ resource "aws_ecs_task_definition" "dbt" {
     name  = "dbt"
     image = "${aws_ecr_repository.dbt.repository_url}:latest"
     environment = [
-      { name = "DBT_TAG",             value = "every_30min" },
+      { name = "DBT_TAG",             value = "monday_19h" },        # ← corrigé
       { name = "SNOWFLAKE_ACCOUNT",   value = var.snowflake_account },
       { name = "SNOWFLAKE_USER",      value = var.snowflake_user },
       { name = "SNOWFLAKE_DATABASE",  value = var.snowflake_database },
@@ -107,18 +107,18 @@ resource "aws_iam_role_policy" "scheduler" {
 }
 
 # ─────────────────────────────────────────
-# EventBridge Scheduler — toutes les 30min
+# EventBridge Scheduler — tous les lundis à 19h Paris
 # ─────────────────────────────────────────
 resource "aws_scheduler_schedule" "dbt" {
-  name       = "dbt-every-30min"
+  name       = "dbt-monday-19h"                          # ← corrigé
   group_name = "default"
 
   flexible_time_window {
-    mode = "OFF"                 # ← précision exacte, pas de fenêtre flexible
+    mode = "OFF"
   }
 
-  schedule_expression          = "rate(30 minutes)"
-  schedule_expression_timezone = "Europe/Paris"    # ← heure Paris directement
+  schedule_expression          = "cron(0 19 ? * MON *)"  # ← corrigé
+  schedule_expression_timezone = "Europe/Paris"
 
   target {
     arn      = aws_ecs_cluster.dbt.arn
