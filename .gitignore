@@ -8,3 +8,5 @@ aws/*.tfvars
 *.pem
 aws/terraform.tfstate
 aws/terraform.tfstate.backup
+aws/*.tfstate
+aws/*.tfstate.backup
