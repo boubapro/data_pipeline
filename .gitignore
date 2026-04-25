@@ -25,3 +25,4 @@ base_library.zip
 *.so
 *.so.*
 *.zip
+aws/dist/
