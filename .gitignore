@@ -26,3 +26,4 @@ base_library.zip
 *.so.*
 *.zip
 aws/dist/
+logs/
