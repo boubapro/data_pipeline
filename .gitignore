@@ -12,3 +12,16 @@ aws/*.tfstate
 aws/*.tfstate.backup
 aws/*.tfstate
 aws/*.tfstate.*.backup
+awscli/
+dateutil/
+docutils/
+prompt_toolkit*/
+python3.14/
+setuptools/
+_awscrt*
+_ruamel*
+aws_completer
+base_library.zip
+*.so
+*.so.*
+*.zip
