@@ -135,3 +135,22 @@ resource "aws_scheduler_schedule" "dbt" {
     }
   }
 }
+
+# ─────────────────────────────────────────
+# ECR Lifecycle Policy — keep 3 latest images
+# ─────────────────────────────────────────
+resource "aws_ecr_lifecycle_policy" "dbt" {
+  repository = aws_ecr_repository.dbt.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Garder seulement les 3 dernières images"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = 3
+      }
+      action = { type = "expire" }
+    }]
+  })
+}
