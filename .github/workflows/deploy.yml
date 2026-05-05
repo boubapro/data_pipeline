@@ -1,10 +1,55 @@
+name: CI – Code Quality
+
 on:
   push:
-    branches:  [main]
-
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  deploy:
-    runs-on:  ubuntu-latest
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff black mypy pytest pytest-cov
+
+      # ── Linting ────────────────────────────────────────────────────────────
+      - name: Ruff – lint
+        run: ruff check . --output-format=github
+
+      # ── Formatting ─────────────────────────────────────────────────────────
+      - name: Black – format check
+        run: black --check .
+
+      # ── Type checking ──────────────────────────────────────────────────────
+      - name: Mypy – type check
+        run: mypy . --ignore-missing-imports
+
+      # ── Tests + coverage ───────────────────────────────────────────────────
+      - name: Pytest – tests & coverage
+        run: |
+          pytest tests/ \
+            --cov=. \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=80
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
