@@ -1,21 +1,77 @@
-name: Manual workflow
+name: Manual dbt workflow
 
 on:
   workflow_dispatch:
     inputs:
-      name:
-        description: 'events'
+      model:
+        description: 'dbt model to run'
         required: true
-        default: ''
         type: string
 
 jobs:
-  greet:
+  dbt-run:
     runs-on: self-hosted
 
-    env:
-      ENV_NAME: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
-
     steps:
-      - name: Launch events
-        run: dbt run -s "${{ inputs.name }}" -t "${ENV_NAME}"
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set DBT target environment
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+
+          if [ "$BRANCH" = "main" ]; then
+            echo "DBT_TARGET=prod" >> $GITHUB_ENV
+          else
+            SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '_')
+            echo "DBT_TARGET=$SAFE_BRANCH" >> $GITHUB_ENV
+          fi
+
+      - name: Create dbt profiles.yml (Snowflake)
+        run: |
+          mkdir -p ~/.dbt
+
+          cat > ~/.dbt/profiles.yml << EOF
+          my_project:
+            target: ${DBT_TARGET}
+            outputs:
+              prod:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}
+                schema: ${{ secrets.SNOWFLAKE_SCHEMA }}
+                threads: 4
+
+              dev:
+                type: snowflake
+                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+                user: ${{ secrets.SNOWFLAKE_USER }}
+                password: ${{ secrets.SNOWFLAKE_PASSWORD }}
+                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+                database: ${{ secrets.SNOWFLAKE_DATABASE }}
+                schema: ${{ secrets.SNOWFLAKE_SCHEMA }}
+                threads: 4
+          EOF
+
+      - name: Run dbt
+        run: |
+          source .venv/bin/activate
+          dbt debug
+          dbt run -s "${{ inputs.model }}" --target ${DBT_TARGET}
