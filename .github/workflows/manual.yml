@@ -18,7 +18,7 @@ jobs:
 
       - name: Create virtual env & install dependencies
         run: |
-          python3.12 -m venv .venv   # ou python3 si c'est déjà 3.12
+          python3 -m venv .venv
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -r requirements.txt
 
@@ -28,18 +28,17 @@ jobs:
           if [ "$BRANCH" = "main" ]; then
             echo "DBT_TARGET=prod" >> $GITHUB_ENV
           else
-            SAFE_BRANCH=$(echo "$BRANCH" | tr '/' '_')
-            echo "DBT_TARGET=$SAFE_BRANCH" >> $GITHUB_ENV
+            echo "DBT_TARGET=dev" >> $GITHUB_ENV
           fi
 
       - name: dbt debug
-        run: .venv/bin/dbt debug --target $DBT_TARGET
+        run: .venv/bin/dbt debug --profiles-dir . --target $DBT_TARGET
 
       - name: dbt deps
         run: .venv/bin/dbt deps
 
       - name: dbt run
-        run: .venv/bin/dbt run -s "${{ inputs.model }}" --target $DBT_TARGET
+        run: .venv/bin/dbt run -s "${{ inputs.model }}" --profiles-dir . --target $DBT_TARGET
 
       - name: dbt test
-        run: .venv/bin/dbt test -s "${{ inputs.model }}" --target $DBT_TARGET
+        run: .venv/bin/dbt test -s "${{ inputs.model }}" --profiles-dir . --target $DBT_TARGET
