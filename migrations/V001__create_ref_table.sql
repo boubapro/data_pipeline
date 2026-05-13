@@ -2,7 +2,7 @@
 -- Ce fichier sera exécuté UNE SEULE FOIS au déploiement.
 -- Ne jamais modifier ce fichier après déploiement.
 
-CREATE TABLE IF NOT EXISTS REF_COUNTRY (
+CREATE TABLE IF NOT EXISTS PUBLIC.REF_COUNTRY (
     country_code   VARCHAR(3)    NOT NULL,
     country_name   VARCHAR(100)  NOT NULL,
     region         VARCHAR(50),
