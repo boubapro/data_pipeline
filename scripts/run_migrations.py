@@ -39,7 +39,7 @@ def get_snowflake_connection():
     required = [
         "SNOWFLAKE_ACCOUNT", "SNOWFLAKE_USER", "SNOWFLAKE_PASSWORD",
         "SNOWFLAKE_ROLE", "SNOWFLAKE_WAREHOUSE",
-        "SNOWFLAKE_DATABASE", "SNOWFLAKE_SCHEMA",
+        "SNOWFLAKE_DATABASE",
     ]
     missing = [v for v in required if not os.getenv(v)]
     if missing:
@@ -52,7 +52,6 @@ def get_snowflake_connection():
         role=os.environ["SNOWFLAKE_ROLE"],
         warehouse=os.environ["SNOWFLAKE_WAREHOUSE"],
         database=os.environ["SNOWFLAKE_DATABASE"],
-        schema=os.environ["SNOWFLAKE_SCHEMA"],
     )
 
 
