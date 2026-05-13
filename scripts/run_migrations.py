@@ -24,7 +24,9 @@ import snowflake.connector
 # ─── Configuration ────────────────────────────────────────────────────────────
 
 MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
-TRACKING_TABLE = "SNOWFLAKE_LEARNING_DB.ADMIN.MIGRATIONS_HISTORY"
+_db     = os.getenv("SNOWFLAKE_DATABASE", "SNOWFLAKE_LEARNING_DB")
+_schema = os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC")
+TRACKING_TABLE = f"{_db}.{_schema}.MIGRATIONS_HISTORY"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,7 +58,7 @@ def get_snowflake_connection():
     """Crée une connexion Snowflake via clé RSA."""
     required = [
         "SNOWFLAKE_ACCOUNT", "SNOWFLAKE_USER", "SNOWFLAKE_PRIVATE_KEY_PATH",
-        "SNOWFLAKE_ROLE", "SNOWFLAKE_WAREHOUSE", "SNOWFLAKE_DATABASE",
+        "SNOWFLAKE_ROLE", "SNOWFLAKE_WAREHOUSE", "SNOWFLAKE_DATABASE", "SNOWFLAKE_SCHEMA",
     ]
     missing = [v for v in required if not os.getenv(v)]
     if missing:
