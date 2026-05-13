@@ -126,7 +126,14 @@ def split_sql_statements(sql: str) -> list[str]:
     if leftover:
         statements.append(leftover)
 
-    return statements
+    # Filtre les statements vides ou composés uniquement de commentaires
+    cleaned = []
+    for s in statements:
+        lines = [l for l in s.splitlines() if l.strip() and not l.strip().startswith("--")]
+        if lines:
+            cleaned.append(s)
+
+    return cleaned
 
 
 def run_sql_file(cursor, path: Path):
