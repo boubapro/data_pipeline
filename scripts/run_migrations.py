@@ -71,6 +71,7 @@ def get_snowflake_connection():
         role=os.environ["SNOWFLAKE_ROLE"],
         warehouse=os.environ["SNOWFLAKE_WAREHOUSE"],
         database=os.environ["SNOWFLAKE_DATABASE"],
+        schema=os.environ["SNOWFLAKE_SCHEMA"],
     )
 
 
@@ -101,10 +102,37 @@ def get_pending_migrations(executed: set) -> list[Path]:
     return pending
 
 
+def split_sql_statements(sql: str) -> list[str]:
+    """
+    Découpe un fichier SQL en statements individuels.
+    Gère les blocs $$ (procédures stockées Snowflake) sans les couper.
+    """
+    statements = []
+    current    = []
+    in_block   = False
+
+    for line in sql.splitlines():
+        stripped = line.strip()
+        if stripped.count("$$") % 2 != 0:
+            in_block = not in_block
+        current.append(line)
+        if not in_block and stripped.endswith(";"):
+            stmt = "\n".join(current).strip()
+            if stmt:
+                statements.append(stmt)
+            current = []
+
+    leftover = "\n".join(current).strip()
+    if leftover:
+        statements.append(leftover)
+
+    return statements
+
+
 def run_sql_file(cursor, path: Path):
-    """Exécute un fichier SQL (supporte les statements multiples séparés par ;)."""
-    sql = path.read_text(encoding="utf-8")
-    statements = [s.strip() for s in sql.split(";") if s.strip()]
+    """Exécute un fichier SQL (supporte les statements multiples et les blocs $$)."""
+    sql        = path.read_text(encoding="utf-8")
+    statements = split_sql_statements(sql)
     for stmt in statements:
         log.debug(f"  → {stmt[:80]}...")
         cursor.execute(stmt)
