@@ -1,5 +1,5 @@
 -- drop_test_tables.sql
--- Supprime toutes les tables du schéma PUBLIC dont le nom contient "TEST".
+-- Supprime toutes les tables du schéma PUBLIC dont le nom contient "TEST", pour un cas de test.
 
 CREATE OR REPLACE PROCEDURE SNOWFLAKE_LEARNING_DB.PUBLIC.DROP_TEST_TABLES()
 RETURNS VARCHAR
