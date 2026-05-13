@@ -1,6 +1,6 @@
 -- migrations/V002__create_ref_country.sql
 -- Ce fichier sera exécuté UNE SEULE FOIS au déploiement.
--- Ne jamais modifier ce fichier après déploiement .
+-- Ne jamais modifier ce fichier après déploiement.
 
 CREATE TABLE IF NOT EXISTS REF_COUNTRY (
     country_code   VARCHAR(3)    NOT NULL,
