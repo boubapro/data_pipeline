@@ -7,30 +7,36 @@ name: Migrations Snowflake
     paths:
       - "migrations/**"
 
+env:
+  SNOWFLAKE_ACCOUNT:           ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER:              ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_ROLE:              ${{ secrets.SNOWFLAKE_ROLE }}
+  SNOWFLAKE_WAREHOUSE:         ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+  SNOWFLAKE_DATABASE:          ${{ secrets.SNOWFLAKE_DATABASE }}
+  SNOWFLAKE_PRIVATE_KEY_PATH:  /tmp/rsa_key.p8
+
 jobs:
   run-migrations:
-    runs-on: ubuntu-latest
-
-    env:
-      SNOWFLAKE_ACCOUNT:   ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      SNOWFLAKE_USER:      ${{ secrets.SNOWFLAKE_USER }}
-      SNOWFLAKE_PASSWORD:  ${{ secrets.SNOWFLAKE_PASSWORD }}
-      SNOWFLAKE_ROLE:      ${{ secrets.SNOWFLAKE_ROLE }}
-      SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-      SNOWFLAKE_DATABASE:  SNOWFLAKE_LEARNING_DB
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
+      - name: Write RSA private key
+        run: |
+          printf '%s' "${{ secrets.SNOWFLAKE_PRIVATE_KEY }}" > /tmp/rsa_key.p8
+          chmod 600 /tmp/rsa_key.p8
 
-      - name: Install dependencies
-        run: pip install snowflake-connector-python
+      - name: Create virtual env & install dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install snowflake-connector-python cryptography
 
       - name: Run migrations
-        run: python scripts/run_migrations.py
+        run: .venv/bin/python scripts/run_migrations.py
+
+      - name: Delete RSA private key
+        if: always()
+        run: rm -f /tmp/rsa_key.p8
