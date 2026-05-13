@@ -8,8 +8,8 @@ Utilisation :
     python scripts/run_migrations.py
 
 Variables d'environnement requises :
-    SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, SNOWFLAKE_PASSWORD,
-    SNOWFLAKE_ROLE, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_DATABASE, SNOWFLAKE_SCHEMA
+    SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, SNOWFLAKE_PRIVATE_KEY_PATH,
+    SNOWFLAKE_ROLE, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_DATABASE
 """
 
 import os
@@ -17,12 +17,14 @@ import sys
 import hashlib
 import logging
 from pathlib import Path
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 import snowflake.connector
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
 MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
-TRACKING_TABLE = "ADMIN.MIGRATIONS_HISTORY"
+TRACKING_TABLE = "SNOWFLAKE_LEARNING_DB.ADMIN.MIGRATIONS_HISTORY"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,12 +36,27 @@ log = logging.getLogger(__name__)
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+def load_private_key():
+    """Charge la clé privée RSA depuis le fichier."""
+    key_path = os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"]
+    with open(key_path, "rb") as f:
+        private_key = serialization.load_pem_private_key(
+            f.read(),
+            password=None,
+            backend=default_backend(),
+        )
+    return private_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+
+
 def get_snowflake_connection():
-    """Crée une connexion Snowflake depuis les variables d'environnement."""
+    """Crée une connexion Snowflake via clé RSA."""
     required = [
-        "SNOWFLAKE_ACCOUNT", "SNOWFLAKE_USER", "SNOWFLAKE_PASSWORD",
-        "SNOWFLAKE_ROLE", "SNOWFLAKE_WAREHOUSE",
-        "SNOWFLAKE_DATABASE",
+        "SNOWFLAKE_ACCOUNT", "SNOWFLAKE_USER", "SNOWFLAKE_PRIVATE_KEY_PATH",
+        "SNOWFLAKE_ROLE", "SNOWFLAKE_WAREHOUSE", "SNOWFLAKE_DATABASE",
     ]
     missing = [v for v in required if not os.getenv(v)]
     if missing:
@@ -48,7 +65,7 @@ def get_snowflake_connection():
     return snowflake.connector.connect(
         account=os.environ["SNOWFLAKE_ACCOUNT"],
         user=os.environ["SNOWFLAKE_USER"],
-        password=os.environ["SNOWFLAKE_PASSWORD"],
+        private_key=load_private_key(),
         role=os.environ["SNOWFLAKE_ROLE"],
         warehouse=os.environ["SNOWFLAKE_WAREHOUSE"],
         database=os.environ["SNOWFLAKE_DATABASE"],
