@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "eu-west-1"           # ← changer selon ta région
+  region = "eu-west-3"           # ← changer selon ta région
 }
 
 # ─────────────────────────────────────────
