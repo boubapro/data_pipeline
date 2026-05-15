@@ -1,8 +1,8 @@
 {{
     config(
         materialized='table',
-        tags=['every_30min'],
-        transient=false
+        tags=['every_30min']
+       
     )
 }}
 
