@@ -27,7 +27,7 @@ jobs:
       - name: Get changed SQL files
         id: changed
         run: |
-          CHANGED=$(git diff --name-only origin/main HEAD -- 'models/*.sql' 'models/**/*.sql' | tr '\n' ' ')
+          CHANGED=$(git diff --name-only origin/main HEAD | grep -E '\.sql$' | tr '\n' ' ')
           echo "files=$CHANGED" >> $GITHUB_OUTPUT
           echo "Changed files: $CHANGED"
 
@@ -77,7 +77,7 @@ jobs:
       - name: Get changed SQL files
         id: changed
         run: |
-          CHANGED=$(git diff --name-only origin/main HEAD -- 'models/*.sql' 'models/**/*.sql' | tr '\n' ' ')
+          CHANGED=$(git diff --name-only origin/main HEAD | grep -E '\.sql$' | tr '\n' ' ')
           echo "files=$CHANGED" >> $GITHUB_OUTPUT
           echo "Changed files: $CHANGED"
 
@@ -114,7 +114,7 @@ jobs:
       - name: Get changed YAML files
         id: changed
         run: |
-          CHANGED=$(git diff --name-only origin/main HEAD -- 'models/*.yml' 'models/**/*.yml' | tr '\n' ' ')
+          CHANGED=$(git diff --name-only origin/main HEAD | grep -E '\.yml$' | tr '\n' ' ')
           echo "files=$CHANGED" >> $GITHUB_OUTPUT
           echo "Changed files: $CHANGED"
 
@@ -172,7 +172,7 @@ jobs:
       - name: Get changed SQL files
         id: changed
         run: |
-          CHANGED=$(git diff --name-only origin/main HEAD -- 'models/*.sql' 'models/**/*.sql' | tr '\n' ' ')
+          CHANGED=$(git diff --name-only origin/main HEAD | grep -E '\.sql$' | tr '\n' ' ')
           echo "files=$CHANGED" >> $GITHUB_OUTPUT
 
       - name: Check no hardcoded table references
@@ -187,14 +187,14 @@ jobs:
       - name: Check no SELECT * in marts
         if: steps.changed.outputs.files != ''
         run: |
-          MART_FILES=$(echo "${{ steps.changed.outputs.files }}" | tr ' ' '\n' | grep "models/marts/" | tr '\n' ' ')
-          if [ -n "$MART_FILES" ]; then
-            if grep -inP "select\s*\*" $MART_FILES; then
-              echo "❌ SELECT * found in marts. Explicit columns only."
+          echo "🔍 Checking files: ${{ steps.changed.outputs.files }}"
+          for file in ${{ steps.changed.outputs.files }}; do
+            if grep -inE "select[[:space:]]*\*" "$file"; then
+              echo "❌ SELECT * found in $file. Explicit columns only."
               exit 1
             fi
-          fi
-          echo "✅ No SELECT * in marts"
+          done
+          echo "✅ No SELECT * found"
 
       - name: Check no dangerous DDL statements
         if: steps.changed.outputs.files != ''
