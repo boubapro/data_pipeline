@@ -189,7 +189,7 @@ jobs:
         run: |
           MART_FILES=$(echo "${{ steps.changed.outputs.files }}" | tr ' ' '\n' | grep "models/marts/" | tr '\n' ' ')
           if [ -n "$MART_FILES" ]; then
-            if grep -in "SELECT \*" $MART_FILES; then
+            if grep -inP "select\s*\*" $MART_FILES; then
               echo "❌ SELECT * found in marts. Explicit columns only."
               exit 1
             fi
