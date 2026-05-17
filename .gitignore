@@ -1,18 +1,33 @@
+# Terraform
 aws/.terraform/
 aws/.terraform.lock.hcl
 aws/*.tfstate
 aws/*.tfstate.backup
+aws/*.tfstate.*.backup
 aws/*.tfvars
+
+# Clés privées / secrets
 *.p8
 *.pub
 *.pem
-aws/terraform.tfstate
-aws/terraform.tfstate.backup
-aws/*.tfstate
-aws/*.tfstate.backup
-aws/*.tfstate
-aws/*.tfstate.*.backup
+.env
+.env.*
+
+# dbt
+target/
+logs/
+dbt_packages/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# AWS CLI (build artifacts du Makefile)
 awscli/
+awscliv2.zip
+aws/dist/
 dateutil/
 docutils/
 prompt_toolkit*/
@@ -25,6 +40,6 @@ base_library.zip
 *.so
 *.so.*
 *.zip
-aws/dist/
-logs/
-awscliv2.zip
+
+# IDE
+.idea/
