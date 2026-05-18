@@ -1,6 +1,8 @@
 {{
     config(
-        materialized='table'
+        materialized='table',
+        tags=['every_30min'],
+        transient=false
     )
 }}
 SELECT *
