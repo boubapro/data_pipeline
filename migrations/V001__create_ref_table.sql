@@ -1,4 +1,3 @@
--- migrations/V001__create_ref_country.sql
 -- Ce fichier sera exécuté UNE SEULE FOIS au déploiement.
 -- Ne jamais modifier ce fichier après déploiement.
 
