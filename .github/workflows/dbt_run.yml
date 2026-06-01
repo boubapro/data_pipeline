@@ -11,6 +11,7 @@ env:
 jobs:
   dbt-run:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -31,36 +32,64 @@ jobs:
       - name: Créer profiles.yml
         run: |
           mkdir -p ~/.dbt
-          cat > ~/.dbt/profiles.yml << HEREDOC
+          cat > ~/.dbt/profiles.yml << 'HEREDOC'
           data_pipeline:
             outputs:
               dev:
                 type: snowflake
-                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-                user: ${{ secrets.SNOWFLAKE_USER }}
+                account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT') }}"
+                user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
                 private_key_path: /tmp/rsa_key.p8
-                database: ${{ secrets.SNOWFLAKE_DATABASE }}
-                schema: ${{ secrets.SNOWFLAKE_SCHEMA }}
-                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-                role: ${{ secrets.SNOWFLAKE_ROLE }}
+                database: "{{ env_var('DBT_SNOWFLAKE_DATABASE') }}"
+                schema: "{{ env_var('DBT_SNOWFLAKE_SCHEMA') }}"
+                warehouse: "{{ env_var('DBT_SNOWFLAKE_WAREHOUSE') }}"
+                role: "{{ env_var('DBT_SNOWFLAKE_ROLE') }}"
                 threads: 4
                 transient: false
             target: dev
           HEREDOC
 
       - name: dbt debug
+        env:
+          DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          DBT_SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          DBT_SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          DBT_SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+          DBT_SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          DBT_SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
         run: dbt debug
 
       - name: dbt deps
         run: dbt deps
 
       - name: dbt run
+        env:
+          DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          DBT_SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          DBT_SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          DBT_SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+          DBT_SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          DBT_SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
         run: dbt run --select tag:${{ env.DBT_TAG }}
 
       - name: dbt test
+        env:
+          DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          DBT_SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          DBT_SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          DBT_SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+          DBT_SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          DBT_SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
         run: dbt test --select tag:${{ env.DBT_TAG }}
 
       - name: dbt docs generate
+        env:
+          DBT_SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          DBT_SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          DBT_SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          DBT_SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+          DBT_SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          DBT_SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
         run: dbt docs generate
 
       - name: Supprimer la clé privée
