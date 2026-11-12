@@ -1,0 +1,53 @@
+image: python:3.11
+
+stages:
+  - deploy
+
+.dbt-deploy:
+  stage: deploy
+  before_script:
+    - pip install -r requirements.txt
+    - cp "$SNOWFLAKE_PRIVATE_KEY" /tmp/rsa_key.p8
+    - chmod 600 /tmp/rsa_key.p8
+  script:
+    - dbt debug --profiles-dir . --target "$DBT_TARGET"
+    - dbt deps
+    - dbt run --profiles-dir . --target "$DBT_TARGET"
+    - dbt test --profiles-dir . --target "$DBT_TARGET"
+  after_script:
+    - rm -f /tmp/rsa_key.p8
+
+deploy-dev:
+  extends: .dbt-deploy
+  variables:
+    DBT_TARGET: dev
+    SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+  environment:
+    name: dev
+    deployment_tier: development
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+
+deploy-int:
+  extends: .dbt-deploy
+  variables:
+    DBT_TARGET: int
+    SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+  environment:
+    name: int
+    deployment_tier: testing
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "int"'
+
+deploy-production:
+  extends: .dbt-deploy
+  variables:
+    DBT_TARGET: prod
+    SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+  environment:
+    name: production
+    deployment_tier: production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+      allow_failure: false
