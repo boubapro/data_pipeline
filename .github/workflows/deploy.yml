@@ -59,10 +59,9 @@ jobs:
       - name: Install dbt packages
         run: dbt deps --profiles-dir /tmp/dbt-profiles
 
-      - name: Run and test scheduled models
+      - name: Build (run + test + publish) scheduled models
         run: |
-          dbt run --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET" --select "tag:${DBT_TAG}"
-          dbt test --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET" --select "tag:${DBT_TAG}"
+          dbt build --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET" --select "tag:${DBT_TAG}"
 
       - name: Remove RSA private key
         if: always()

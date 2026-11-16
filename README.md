@@ -18,6 +18,10 @@ Dans **Settings > CI/CD > Protected environments**, protégez `production` et li
 
 Le profil dbt utilise les variables `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA` et `SNOWFLAKE_PRIVATE_KEY_PATH`. Pour une clé chiffrée, définissez aussi `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. Placez-les dans `.env` (non versionné), protégez ce fichier avec `chmod 600 .env`, puis lancez `./run_dbt.sh`; le script génère un profil temporaire protégé et restreint les permissions de la clé. Le script utilise la cible `dev` par défaut; `DBT_TARGET` permet de choisir `dev`, `int` ou `prod`, et `DBT_TAG` est facultatif.
 
+### Publication BI
+
+Les pipelines utilisent `dbt build` (modèles + tests). La macro `safe_bi_swap` s'exécute en `on-run-end` et ne publie les tables du datamart vers le schéma BI que si **aucun** modèle ni test n'est en échec ou ignoré ; sinon la publication est annulée et les tables BI restent inchangées. Elle ne s'exécute plus après un simple `dbt run`.
+
 ### Migrations Snowflake
 
 Le runner `scripts/run_migrations.py` exécute uniquement les fichiers versionnés `V001__description.sql`, dans l'ordre numérique. Les scripts ponctuels, notamment `drop_some_tables.sql`, ne sont jamais lancés automatiquement. Les migrations existantes sont suivies par checksum; toute modification inattendue d'une migration déjà exécutée bloque le déploiement. Les deux premiers fichiers conservent une exception limitée à leur checksum historique connu pour permettre leur correction sans rejouer ceux déjà appliqués. La base et le schéma de l'historique sont ceux de la cible Snowflake configurée.

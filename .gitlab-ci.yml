@@ -26,8 +26,7 @@ stages:
   script:
     - dbt debug --profiles-dir .dbt-profile --target "$DBT_TARGET"
     - dbt deps
-    - dbt run --profiles-dir .dbt-profile --target "$DBT_TARGET"
-    - dbt test --profiles-dir .dbt-profile --target "$DBT_TARGET"
+    - dbt build --profiles-dir .dbt-profile --target "$DBT_TARGET"
   after_script:
     - rm -f /tmp/rsa_key.p8 .dbt-profile/profiles.yml .dbt-profile/.user.yml
     - rmdir .dbt-profile 2>/dev/null || true
