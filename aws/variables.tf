@@ -70,3 +70,14 @@ variable "subnet_ids" {
   description = "List of subnet IDs"
   type        = list(string)
 }
+
+variable "dbt_target" {
+  description = "dbt target executed by the scheduled ECS task (dev, int or prod)"
+  type        = string
+  default     = "prod"
+
+  validation {
+    condition     = contains(["dev", "int", "prod"], var.dbt_target)
+    error_message = "dbt_target must be one of: dev, int, prod."
+  }
+}

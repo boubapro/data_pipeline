@@ -18,6 +18,10 @@ Dans **Settings > CI/CD > Protected environments**, protégez `production` et li
 
 Le profil dbt utilise les variables `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA` et `SNOWFLAKE_PRIVATE_KEY_PATH`. Pour une clé chiffrée, définissez aussi `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. Placez-les dans `.env` (non versionné), protégez ce fichier avec `chmod 600 .env`, puis lancez `./run_dbt.sh`; le script génère un profil temporaire protégé et restreint les permissions de la clé. Le script utilise la cible `dev` par défaut; `DBT_TARGET` permet de choisir `dev`, `int` ou `prod`, et `DBT_TAG` est facultatif.
 
+### Isolation des environnements
+
+La macro `generate_schema_name` isole les environnements par le code : en `prod`, les schémas gardent leur nom (ex. `DATAMART_SALES_FEED`) ; en `dev` et `int`, ils sont préfixés par la cible (ex. `DEV_DATAMART_SALES_FEED`, publié vers `DEV_DATAMART_SALES`). Un run non-prod ne peut donc pas écraser les tables de production, même sur la même base Snowflake. La tâche ECS planifiée définit `DBT_TARGET` via la variable Terraform `dbt_target` (défaut `prod`) ; `run_dbt.sh` utilise `dev` par défaut.
+
 ### Publication BI
 
 Les pipelines utilisent `dbt build` (modèles + tests). La macro `safe_bi_swap` s'exécute en `on-run-end` et ne publie les tables du datamart vers le schéma BI que si **aucun** modèle ni test n'est en échec ou ignoré ; sinon la publication est annulée et les tables BI restent inchangées. Elle ne s'exécute plus après un simple `dbt run`.
