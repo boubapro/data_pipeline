@@ -29,7 +29,7 @@ jobs:
       HOUSING_SOURCE_SCHEMA: ${{ vars.HOUSING_SOURCE_SCHEMA }}
       SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:

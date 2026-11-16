@@ -21,7 +21,7 @@ jobs:
       SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/unused-rsa-key.p8
       DBT_TAG: every_monday_19h
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:

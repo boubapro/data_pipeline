@@ -29,7 +29,7 @@ jobs:
       SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
       SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
