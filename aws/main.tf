@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "eu-west-3"           # ← changer selon ta région
+  region = var.aws_region
 }
 
 # ─────────────────────────────────────────
@@ -36,6 +36,24 @@ resource "aws_iam_role_policy_attachment" "ecs_task" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy" "ecs_secret" {
+  name = "dbt-snowflake-private-key"
+  role = aws_iam_role.ecs_task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
+      Resource = concat(
+        [var.snowflake_private_key_secret_arn],
+        var.snowflake_private_key_passphrase_secret_arn == null
+        ? []
+        : [var.snowflake_private_key_passphrase_secret_arn]
+      )
+    }]
+  })
+}
+
 # ─────────────────────────────────────────
 # ECS Task Definition
 # ─────────────────────────────────────────
@@ -51,26 +69,39 @@ resource "aws_ecs_task_definition" "dbt" {
     name  = "dbt"
     image = "${aws_ecr_repository.dbt.repository_url}:latest"
     environment = [
-      { name = "DBT_TAG",             value = "monday_19h" },        # ← corrigé
-      { name = "SNOWFLAKE_ACCOUNT",   value = var.snowflake_account },
-      { name = "SNOWFLAKE_USER",      value = var.snowflake_user },
-      { name = "SNOWFLAKE_DATABASE",  value = var.snowflake_database },
-      { name = "SNOWFLAKE_SCHEMA",    value = var.snowflake_schema },
+      { name = "SNOWFLAKE_ACCOUNT", value = var.snowflake_account },
+      { name = "SNOWFLAKE_USER", value = var.snowflake_user },
+      { name = "SNOWFLAKE_DATABASE", value = var.snowflake_database },
+      { name = "SNOWFLAKE_SCHEMA", value = var.snowflake_schema },
       { name = "SNOWFLAKE_WAREHOUSE", value = var.snowflake_warehouse },
-      { name = "SNOWFLAKE_ROLE",      value = var.snowflake_role },
-      { name = "SNOWFLAKE_PRIVATE_KEY", value = var.snowflake_private_key }
+      { name = "SNOWFLAKE_ROLE", value = var.snowflake_role },
+      { name = "DBT_TAG", value = "every_monday_19h" }
     ]
+    secrets = concat(
+      [{
+        name      = "SNOWFLAKE_PRIVATE_KEY"
+        valueFrom = var.snowflake_private_key_secret_arn
+      }],
+      var.snowflake_private_key_passphrase_secret_arn == null ? [] : [{
+        name      = "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"
+        valueFrom = var.snowflake_private_key_passphrase_secret_arn
+      }]
+    )
     logConfiguration = {
       logDriver = "awslogs"
       options = {
         awslogs-group         = "/ecs/dbt"
-        awslogs-region        = "eu-west-1"
+        awslogs-region        = var.aws_region
         awslogs-stream-prefix = "dbt"
       }
     }
   }])
-}
 
+  depends_on = [
+    aws_cloudwatch_log_group.dbt,
+    aws_iam_role_policy.ecs_secret
+  ]
+}
 # ─────────────────────────────────────────
 # CloudWatch Logs
 # ─────────────────────────────────────────
@@ -92,17 +123,30 @@ resource "aws_iam_role" "scheduler" {
       Principal = { Service = "scheduler.amazonaws.com" }
     }]
   })
+
 }
 
 resource "aws_iam_role_policy" "scheduler" {
   role = aws_iam_role.scheduler.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["ecs:RunTask", "iam:PassRole"]
-      Resource = "*"
-    }]
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecs:RunTask"]
+        Resource = aws_ecs_task_definition.dbt.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["iam:PassRole"]
+        Resource = aws_iam_role.ecs_task.arn
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+          }
+        }
+      }
+    ]
   })
 }
 
@@ -110,14 +154,14 @@ resource "aws_iam_role_policy" "scheduler" {
 # EventBridge Scheduler — tous les lundis à 19h Paris
 # ─────────────────────────────────────────
 resource "aws_scheduler_schedule" "dbt" {
-  name       = "dbt-monday-19h"                          # ← corrigé
+  name       = "dbt-monday-19h" # ← corrigé
   group_name = "default"
 
   flexible_time_window {
     mode = "OFF"
   }
 
-  schedule_expression          = "cron(0 19 ? * MON *)"  # ← corrigé
+  schedule_expression          = "cron(0 19 ? * MON *)" # ← corrigé
   schedule_expression_timezone = "Europe/Paris"
 
   target {

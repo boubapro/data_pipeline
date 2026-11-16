@@ -1,6 +1,7 @@
 {{
     config(
-        materialized='table' 
+        materialized='table',
+        tags=['every_monday_19h']
     )
 }}
 SELECT *

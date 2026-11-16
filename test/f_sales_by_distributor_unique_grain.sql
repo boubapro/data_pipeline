@@ -1,0 +1,4 @@
+SELECT YEAR, MONTH, DISTRIBUTOR
+FROM {{ ref('f_sales_by_distributor') }}
+GROUP BY YEAR, MONTH, DISTRIBUTOR
+HAVING COUNT(*) > 1

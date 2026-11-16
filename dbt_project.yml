@@ -13,3 +13,6 @@ docs-paths: [docs]
 models:
   data_pipeline:
     +transient: false
+
+on-run-end:
+  - "{{ safe_bi_swap() }}"

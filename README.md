@@ -16,4 +16,12 @@ Dans **Settings > CI/CD > Protected environments**, protégez `production` et li
 
 ### Connexion dbt locale
 
-Le fichier `profiles.yml` utilise les variables `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA` et `SNOWFLAKE_PRIVATE_KEY_PATH`. Pour une clé chiffrée, définissez aussi `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. Placez-les dans `.env` (non versionné), protégez ce fichier avec `chmod 600 .env`, puis lancez `./run_dbt.sh`; le script restreint automatiquement les permissions de la clé. Le script utilise la cible `dev` par défaut; `DBT_TARGET` permet de choisir `dev`, `int` ou `prod`, et `DBT_TAG` est facultatif.
+Le profil dbt utilise les variables `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA` et `SNOWFLAKE_PRIVATE_KEY_PATH`. Pour une clé chiffrée, définissez aussi `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. Placez-les dans `.env` (non versionné), protégez ce fichier avec `chmod 600 .env`, puis lancez `./run_dbt.sh`; le script génère un profil temporaire protégé et restreint les permissions de la clé. Le script utilise la cible `dev` par défaut; `DBT_TARGET` permet de choisir `dev`, `int` ou `prod`, et `DBT_TAG` est facultatif.
+
+### Migrations Snowflake
+
+Le runner `scripts/run_migrations.py` exécute uniquement les fichiers versionnés `V001__description.sql`, dans l'ordre numérique. Les scripts ponctuels, notamment `drop_some_tables.sql`, ne sont jamais lancés automatiquement. Les migrations existantes sont suivies par checksum; toute modification inattendue d'une migration déjà exécutée bloque le déploiement. Les deux premiers fichiers conservent une exception limitée à leur checksum historique connu pour permettre leur correction sans rejouer ceux déjà appliqués. La base et le schéma de l'historique sont ceux de la cible Snowflake configurée.
+
+### Déploiement AWS ECS
+
+Avant `aws/deploy.sh`, stockez la clé privée PEM destinée à l'exécution dbt dans AWS Secrets Manager et définissez `SNOWFLAKE_PRIVATE_KEY_SECRET_ARN` avec son ARN, `AWS_REGION` si nécessaire, et les paramètres Terraform Snowflake/AWS requis. Pour une clé chiffrée, définissez aussi `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE_SECRET_ARN`. Le rôle d'exécution ECS ne peut lire que ces secrets. Le rôle GitHub `production` doit être configuré comme environnement protégé pour les workflows manuels de production; AWS EventBridge est l'unique ordonnanceur hebdomadaire.

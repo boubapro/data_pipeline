@@ -1,0 +1,4 @@
+SELECT SALE_DATE
+FROM {{ ref('f_sales_daily') }}
+GROUP BY SALE_DATE
+HAVING COUNT(*) > 1

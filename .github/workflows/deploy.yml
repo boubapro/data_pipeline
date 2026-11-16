@@ -1,78 +1,71 @@
-name: dbt run weekly
+name: Manual dbt deployment
 
 on:
-  schedule:
-    - cron: '0 18 * * 1'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
-  DBT_TAG: monday_19h
+  DBT_TAG: every_monday_19h
 
 jobs:
-  dbt-run:
+  dbt-deploy:
     runs-on: ubuntu-latest
-
+    environment: ${{ github.ref_name == 'main' && 'production' || 'dev' }}
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+      SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+      SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+      SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+      SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+      SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: pip
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Créer la clé privée RSA
+      - name: Write RSA private key
+        env:
+          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
         run: |
-          printf '%s' "${{ secrets.SNOWFLAKE_PRIVATE_KEY }}" > /tmp/rsa_key.p8
-          chmod 600 /tmp/rsa_key.p8
+          umask 077
+          printf '%s' "$SNOWFLAKE_PRIVATE_KEY" > "$SNOWFLAKE_PRIVATE_KEY_PATH"
 
-      - name: Créer profiles.yml
+      - name: Create dbt profile
+        run: python scripts/write_dbt_profile.py /tmp/dbt-profiles
+
+      - name: Select dbt target
         run: |
-          mkdir -p ~/.dbt
-          cat > ~/.dbt/profiles.yml << HEREDOC
-          data_pipeline:
-            outputs:
-              dev:
-                type: snowflake
-                account: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-                user: ${{ secrets.SNOWFLAKE_USER }}
-                private_key_path: /tmp/rsa_key.p8
-                database: ${{ secrets.SNOWFLAKE_DATABASE }}
-                schema: ${{ secrets.SNOWFLAKE_SCHEMA }}
-                warehouse: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-                role: ${{ secrets.SNOWFLAKE_ROLE }}
-                threads: 4
-                transient: false
-            target: dev
-          HEREDOC
+          if [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            echo "DBT_TARGET=prod" >> "$GITHUB_ENV"
+          else
+            echo "DBT_TARGET=dev" >> "$GITHUB_ENV"
+          fi
 
-      - name: dbt debug
-        run: dbt debug
+      - name: Validate Snowflake connection
+        run: dbt debug --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET"
 
-      - name: dbt deps
-        run: dbt deps
+      - name: Install dbt packages
+        run: dbt deps --profiles-dir /tmp/dbt-profiles
 
-      - name: dbt run
-        run: dbt run --select tag:${{ env.DBT_TAG }}
+      - name: Run and test scheduled models
+        run: |
+          dbt run --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET" --select "tag:${DBT_TAG}"
+          dbt test --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET" --select "tag:${DBT_TAG}"
 
-      - name: dbt test
-        run: dbt test --select tag:${{ env.DBT_TAG }}
-
-      - name: dbt docs generate
-        run: dbt docs generate
-
-      - name: Upload dbt docs
-        uses: actions/upload-artifact@v4
-        with:
-          name: dbt-docs
-          path: target/
-
-      - name: Supprimer la clé privée
+      - name: Remove RSA private key
         if: always()
-        run: rm -f /tmp/rsa_key.p8
+        run: |
+          rm -f "$SNOWFLAKE_PRIVATE_KEY_PATH" /tmp/dbt-profiles/profiles.yml /tmp/dbt-profiles/.user.yml
+          if [[ -d /tmp/dbt-profiles ]]; then rmdir /tmp/dbt-profiles; fi

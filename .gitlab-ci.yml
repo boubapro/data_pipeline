@@ -20,13 +20,17 @@ stages:
       test -f "$SNOWFLAKE_PRIVATE_KEY"
       cp "$SNOWFLAKE_PRIVATE_KEY" /tmp/rsa_key.p8
       chmod 600 /tmp/rsa_key.p8
+    - python scripts/write_dbt_profile.py .dbt-profile
+  variables:
+    DBT_PROFILES_DIR: .dbt-profile
   script:
-    - dbt debug --profiles-dir . --target "$DBT_TARGET"
+    - dbt debug --profiles-dir .dbt-profile --target "$DBT_TARGET"
     - dbt deps
-    - dbt run --profiles-dir . --target "$DBT_TARGET"
-    - dbt test --profiles-dir . --target "$DBT_TARGET"
+    - dbt run --profiles-dir .dbt-profile --target "$DBT_TARGET"
+    - dbt test --profiles-dir .dbt-profile --target "$DBT_TARGET"
   after_script:
-    - rm -f /tmp/rsa_key.p8
+    - rm -f /tmp/rsa_key.p8 .dbt-profile/profiles.yml .dbt-profile/.user.yml
+    - rmdir .dbt-profile 2>/dev/null || true
 
 deploy-dev:
   extends: .dbt-deploy

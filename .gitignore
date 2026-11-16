@@ -1,5 +1,4 @@
 aws/.terraform/
-aws/.terraform.lock.hcl
 aws/*.tfstate
 aws/*.tfstate.backup
 aws/*.tfvars
@@ -28,3 +27,9 @@ base_library.zip
 aws/dist/
 logs/
 awscliv2.zip
+/.env
+.venv/
+__pycache__/
+.DS_Store
+target/
+.dbt-profile/
