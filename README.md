@@ -32,7 +32,15 @@ Les pipelines utilisent `dbt build` (modèles + tests). La macro `safe_bi_swap` 
 
 ### Migrations Snowflake
 
-Le runner `scripts/run_migrations.py` exécute uniquement les fichiers versionnés `V001__description.sql`, dans l'ordre numérique. Les scripts ponctuels, notamment `drop_some_tables.sql`, ne sont jamais lancés automatiquement. Les migrations existantes sont suivies par checksum; toute modification inattendue d'une migration déjà exécutée bloque le déploiement. Les deux premiers fichiers conservent une exception limitée à leur checksum historique connu pour permettre leur correction sans rejouer ceux déjà appliqués. La base et le schéma de l'historique sont ceux de la cible Snowflake configurée.
+Le runner `scripts/run_migrations.py` exécute uniquement les fichiers versionnés `V001__description.sql`, dans l'ordre numérique ; les autres fichiers SQL du dossier sont ignorés. Règles appliquées :
+
+- Les migrations exécutées sont suivies par checksum : modifier une migration déjà appliquée bloque le déploiement (V001 et V002 conservent une exception limitée à leur checksum historique connu). V001 à V003 sont donc immuables, même si elles se recoupent.
+- Une migration en attente plus ancienne que la dernière version exécutée est refusée : créez toujours une nouvelle version.
+- À partir de V004, toute instruction destructive (`DROP`, `TRUNCATE`, `CREATE OR REPLACE TABLE/SCHEMA/DATABASE`) est refusée, sauf marqueur explicite `-- migration:allow-destructive` ajouté après revue. Ce contrôle est aussi exécuté par les tests de la CI.
+- Le DDL Snowflake est validé automatiquement : une migration qui échoue en cours de route n'est pas annulée. Écrivez des migrations idempotentes (`CREATE ... IF NOT EXISTS`, `MERGE`) ; l'instruction en échec est indiquée dans l'erreur et la migration est marquée `FAILED` avant relance.
+- Les scripts ponctuels (ex. nettoyage de tables de test) ne doivent pas être versionnés dans `migrations/`.
+
+La base et le schéma de l'historique (`MIGRATIONS_HISTORY`) sont ceux de la cible Snowflake configurée.
 
 ### Déploiement AWS ECS
 

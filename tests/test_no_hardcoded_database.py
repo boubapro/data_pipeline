@@ -3,9 +3,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 FORBIDDEN = "SNOWFLAKE_LEARNING_DB"
-# Les migrations historiques sont traitées séparément du code applicatif.
 SCANNED = [
-    "models", "macros", "scripts", "aws", ".github", "profiles.yml",
+    "models", "macros", "scripts", "aws", "migrations", ".github", "profiles.yml",
     "dbt_project.yml", ".gitlab-ci.yml", "run_dbt.sh", "Dockerfile", "Makefile",
 ]
 SUFFIXES = {".sql", ".yml", ".yaml", ".py", ".tf", ".sh", ""}

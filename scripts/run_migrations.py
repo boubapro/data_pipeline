@@ -3,6 +3,16 @@ Exécute les nouvelles migrations Snowflake versionnées du dossier migrations/.
 
 Convention : V001__description.sql, V002__description.sql, etc.
 Les scripts SQL sans version ne sont jamais exécutés automatiquement.
+
+Garde-fous :
+- une migration en attente dont la version est inférieure à la dernière
+  version déjà exécutée est refusée (ordre strict) ;
+- à partir de V004, une migration contenant une instruction destructive
+  (DROP, TRUNCATE, CREATE OR REPLACE TABLE/SCHEMA/DATABASE) est refusée
+  sauf si elle porte explicitement le marqueur `-- migration:allow-destructive` ;
+- le DDL Snowflake est validé automatiquement (auto-commit) : une migration
+  qui échoue en cours de route n'est PAS annulée. Écrire des migrations
+  idempotentes (CREATE ... IF NOT EXISTS, MERGE) pour pouvoir les rejouer.
 """
 
 import hashlib
@@ -16,6 +26,18 @@ from cryptography.hazmat.primitives import serialization
 
 MIGRATIONS_DIR = Path(__file__).parent.parent / "migrations"
 VERSIONED_MIGRATION = re.compile(r"^V([0-9]+)__[a-zA-Z0-9_]+\.sql$")
+ALLOW_DESTRUCTIVE_MARKER = "-- migration:allow-destructive"
+# V001 à V003 sont déjà appliquées et immuables : le contrôle ne couvre que la suite.
+DESTRUCTIVE_CHECK_FROM_VERSION = 4
+DESTRUCTIVE_PATTERNS = (
+    re.compile(r"\bDROP\s+\w+", re.IGNORECASE),
+    re.compile(r"\bTRUNCATE\b", re.IGNORECASE),
+    re.compile(
+        r"\bCREATE\s+OR\s+REPLACE\s+(?:TRANSIENT\s+|TEMPORARY\s+)?"
+        r"(?:TABLE|SCHEMA|DATABASE)\b",
+        re.IGNORECASE,
+    ),
+)
 HISTORIC_CHECKSUMS = {
     "V001__create_ref_table.sql": {
         "2350c639fddfb8ffa264d142f13c8bd40507a52eed01d155d1c7307a03eb69e2"
@@ -124,6 +146,27 @@ def get_executed_migrations(cursor) -> dict[str, str]:
     return {row[0]: row[1] for row in cursor.fetchall()}
 
 
+def strip_sql_comments(sql: str) -> str:
+    sql = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
+    return re.sub(r"--[^\n]*", " ", sql)
+
+
+def find_destructive_statements(sql: str) -> list[str]:
+    """Retourne les instructions destructives d'un script, hors commentaires."""
+    if ALLOW_DESTRUCTIVE_MARKER in sql:
+        return []
+    code = strip_sql_comments(sql)
+    return sorted(
+        {match.group(0).upper() for pattern in DESTRUCTIVE_PATTERNS
+         for match in pattern.finditer(code)}
+    )
+
+
+def migration_version(filename: str):
+    match = VERSIONED_MIGRATION.fullmatch(filename)
+    return int(match.group(1)) if match else None
+
+
 def get_pending_migrations(executed: dict[str, str]) -> list[Path]:
     """Sélectionne les migrations versionnées et refuse les versions ambiguës."""
     if not MIGRATIONS_DIR.exists():
@@ -154,6 +197,30 @@ def get_pending_migrations(executed: dict[str, str]) -> list[Path]:
             )
 
     pending = [path for _, path in versioned if path.name not in executed]
+
+    executed_versions = [
+        v for v in (migration_version(name) for name in executed) if v is not None
+    ]
+    if executed_versions and pending:
+        highest = max(executed_versions)
+        for path in pending:
+            if migration_version(path.name) < highest:
+                raise ValueError(
+                    f"Migration hors ordre : {path.name} est antérieure à la "
+                    f"version déjà exécutée V{highest:03d}. Créez une nouvelle "
+                    "version au lieu d'insérer une migration dans le passé."
+                )
+
+    for path in pending:
+        if migration_version(path.name) < DESTRUCTIVE_CHECK_FROM_VERSION:
+            continue
+        destructive = find_destructive_statements(path.read_text(encoding="utf-8"))
+        if destructive:
+            raise ValueError(
+                f"Instruction destructive dans {path.name} : "
+                f"{', '.join(destructive)}. Ajoutez le marqueur "
+                f"'{ALLOW_DESTRUCTIVE_MARKER}' après revue si c'est voulu."
+            )
     log.info(
         "Migrations versionnées : %d | Déjà exécutées : %d | En attente : %d",
         len(versioned),
@@ -195,9 +262,16 @@ def split_sql_statements(sql: str) -> list[str]:
 
 
 def run_sql_file(cursor, path: Path):
-    for statement in split_sql_statements(path.read_text(encoding="utf-8")):
+    statements = split_sql_statements(path.read_text(encoding="utf-8"))
+    for index, statement in enumerate(statements, start=1):
         log.debug("Exécution SQL : %s...", statement[:80])
-        cursor.execute(statement)
+        try:
+            cursor.execute(statement)
+        except Exception as error:
+            raise RuntimeError(
+                f"{path.name} : échec de l'instruction {index}/{len(statements)} "
+                f"({statement[:80]!r}...)"
+            ) from error
 
 
 def mark_as_executed(cursor, filename: str, checksum: str, status: str):
@@ -239,9 +313,17 @@ def main():
                 conn.commit()
                 log.info("Migration réussie : %s", migration_file.name)
             except Exception as error:
-                conn.rollback()
-                mark_as_executed(cursor, migration_file.name, checksum, "FAILED")
-                conn.commit()
+                # Le DDL Snowflake est auto-commit : rien n'est annulé ici.
+                log.error(
+                    "Échec de %s : les instructions déjà exécutées restent "
+                    "appliquées. Corrigez puis relancez (migration idempotente).",
+                    migration_file.name,
+                )
+                try:
+                    mark_as_executed(cursor, migration_file.name, checksum, "FAILED")
+                    conn.commit()
+                except Exception:
+                    log.exception("Impossible d'enregistrer le statut FAILED")
                 raise RuntimeError(
                     f"Échec de la migration {migration_file.name}"
                 ) from error
