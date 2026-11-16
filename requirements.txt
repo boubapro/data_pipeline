@@ -1,2 +1,2 @@
 dbt-snowflake>=1.11.4,<2.0
-cryptography>=46.0.0
+cryptography>=50.0.2
