@@ -25,6 +25,8 @@ jobs:
       SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
       SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
       SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+      HOUSING_SOURCE_DATABASE: ${{ vars.HOUSING_SOURCE_DATABASE }}
+      HOUSING_SOURCE_SCHEMA: ${{ vars.HOUSING_SOURCE_SCHEMA }}
       SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
     steps:
       - uses: actions/checkout@v4
@@ -55,10 +57,9 @@ jobs:
       - name: Install dbt packages
         run: dbt deps --profiles-dir /tmp/dbt-profiles
 
-      - name: Run and test scheduled models
+      - name: Build (run + test + publish) scheduled models
         run: |
-          dbt run --profiles-dir /tmp/dbt-profiles --target dev --select "tag:${DBT_TAG}"
-          dbt test --profiles-dir /tmp/dbt-profiles --target dev --select "tag:${DBT_TAG}"
+          dbt build --profiles-dir /tmp/dbt-profiles --target dev --select "tag:${DBT_TAG}"
 
       - name: Generate dbt documentation
         run: dbt docs generate --profiles-dir /tmp/dbt-profiles --target dev

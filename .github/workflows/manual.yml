@@ -23,6 +23,8 @@ jobs:
       SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
       SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
       SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+      HOUSING_SOURCE_DATABASE: ${{ vars.HOUSING_SOURCE_DATABASE }}
+      HOUSING_SOURCE_SCHEMA: ${{ vars.HOUSING_SOURCE_SCHEMA }}
       SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
       DBT_SELECTOR: ${{ inputs.model }}
     steps:
@@ -62,10 +64,9 @@ jobs:
       - name: Install dbt packages
         run: dbt deps --profiles-dir /tmp/dbt-profiles
 
-      - name: Run and test selected model
+      - name: Build (run + test + publish) selected model
         run: |
-          dbt run --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET" --select "$DBT_SELECTOR"
-          dbt test --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET" --select "$DBT_SELECTOR"
+          dbt build --profiles-dir /tmp/dbt-profiles --target "$DBT_TARGET" --select "$DBT_SELECTOR"
 
       - name: Remove RSA private key
         if: always()

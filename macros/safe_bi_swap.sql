@@ -117,7 +117,25 @@
 #}
 {% macro safe_bi_swap() %}
 
-  {% if execute and flags.WHICH in ['run', 'build'] %}
+  {# Publication uniquement après `dbt build` : modèles ET tests exécutés. #}
+  {% if execute and flags.WHICH == 'build' %}
+
+    {# Garde-fou : aucun échec/skip (modèle ou test) ne doit être présent. #}
+    {% set blocking = [] %}
+    {% for res in results %}
+      {% if res.status in ['error', 'fail', 'skipped'] %}
+        {% do blocking.append(res.node.name ~ ' (' ~ res.status ~ ')') %}
+      {% endif %}
+    {% endfor %}
+
+    {% if blocking | length > 0 %}
+      {% do log(
+        'Publication BI annulée : ' ~ (blocking | length) ~
+        ' échec(s) ou skip(s) : ' ~ (blocking | join(', ')),
+        info=true
+      ) %}
+      {{ return('') }}
+    {% endif %}
 
     {% set select_arg =
       invocation_args_dict.get('select')

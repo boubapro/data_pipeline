@@ -89,7 +89,6 @@ fi
 echo "===== dbt run démarré : $(date) ====="
 "$DBT_BIN" debug "${dbt_args[@]}"
 "$DBT_BIN" deps --profiles-dir "$profile_dir"
-"$DBT_BIN" run "${selector[@]}" "${dbt_args[@]}"
-"$DBT_BIN" test "${selector[@]}" "${dbt_args[@]}"
-"$DBT_BIN" docs generate
+"$DBT_BIN" build "${selector[@]}" "${dbt_args[@]}"
+"$DBT_BIN" docs generate "${dbt_args[@]}"
 echo "===== dbt run terminé : $(date) ====="

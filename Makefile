@@ -29,7 +29,7 @@ deploy:
 	bash aws/deploy.sh
 
 run:
-	dbt run --select tag:every_30min
+	dbt build --select tag:every_30min
 
 test:
 	dbt test --select tag:every_30min

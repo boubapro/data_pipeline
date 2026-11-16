@@ -1,35 +1,24 @@
+# Secrets et clés
+.env
+*.p8
+*.pem
+*.pub
+rsa_key*
+
+# Terraform
 aws/.terraform/
 aws/*.tfstate
-aws/*.tfstate.backup
+aws/*.tfstate.*
+aws/.terraform.tfstate.lock.info
 aws/*.tfvars
-*.p8
-*.pub
-*.pem
-aws/terraform.tfstate
-aws/terraform.tfstate.backup
-aws/*.tfstate
-aws/*.tfstate.backup
-aws/*.tfstate
-aws/*.tfstate.*.backup
-awscli/
-dateutil/
-docutils/
-prompt_toolkit*/
-python3.14/
-setuptools/
-_awscrt*
-_ruamel*
-aws_completer
-base_library.zip
-*.so
-*.so.*
-*.zip
-aws/dist/
+
+# dbt / Python
+target/
+dbt_packages/
 logs/
-awscliv2.zip
-/.env
+.dbt-profile/
 .venv/
 __pycache__/
+
+# Divers
 .DS_Store
-target/
-.dbt-profile/

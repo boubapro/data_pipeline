@@ -21,15 +21,25 @@ variable "snowflake_user" {
 }
 
 variable "snowflake_database" {
-  description = "Target Snowflake database"
+  description = "Target Snowflake database (no default: must be set per environment)"
   type        = string
-  default     = "SNOWFLAKE_LEARNING_DB" # non sensible, ok en default
 }
 
 variable "snowflake_schema" {
-  description = "Target Snowflake schema"
+  description = "Target Snowflake schema (no default: must be set per environment)"
   type        = string
-  default     = "PUBLIC"
+}
+
+variable "housing_source_database" {
+  description = "Database holding the housing source table; empty means the dbt target database"
+  type        = string
+  default     = ""
+}
+
+variable "housing_source_schema" {
+  description = "Schema holding the housing source table; empty means PUBLIC"
+  type        = string
+  default     = ""
 }
 
 variable "snowflake_warehouse" {
@@ -69,4 +79,21 @@ variable "aws_region" {
 variable "subnet_ids" {
   description = "List of subnet IDs"
   type        = list(string)
+}
+
+variable "alert_email" {
+  description = "Email notified when the scheduled dbt ECS task fails (empty disables the subscription)"
+  type        = string
+  default     = ""
+}
+
+variable "dbt_target" {
+  description = "dbt target executed by the scheduled ECS task (dev, int or prod)"
+  type        = string
+  default     = "prod"
+
+  validation {
+    condition     = contains(["dev", "int", "prod"], var.dbt_target)
+    error_message = "dbt_target must be one of: dev, int, prod."
+  }
 }

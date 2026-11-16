@@ -23,6 +23,10 @@ echo "1. Déployer l'infrastructure"
 cd "$SCRIPT_DIR"
 terraform init -upgrade
 export TF_VAR_aws_region="$AWS_REGION"
+# Base/schéma sans valeur par défaut : repris de l'environnement s'il est défini
+# (sinon Terraform les lit dans aws/*.tfvars ou échoue explicitement).
+[[ -n "${SNOWFLAKE_DATABASE:-}" ]] && export TF_VAR_snowflake_database="$SNOWFLAKE_DATABASE"
+[[ -n "${SNOWFLAKE_SCHEMA:-}" ]] && export TF_VAR_snowflake_schema="$SNOWFLAKE_SCHEMA"
 export TF_VAR_snowflake_private_key_secret_arn="$SNOWFLAKE_PRIVATE_KEY_SECRET_ARN"
 if [[ -n "${SNOWFLAKE_PRIVATE_KEY_PASSPHRASE_SECRET_ARN:-}" ]]; then
   export TF_VAR_snowflake_private_key_passphrase_secret_arn="$SNOWFLAKE_PRIVATE_KEY_PASSPHRASE_SECRET_ARN"
