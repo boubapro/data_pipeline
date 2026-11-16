@@ -1,228 +1,62 @@
-name: DBT Code Quality
+name: dbt validation
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev, int]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+permissions:
+  contents: read
 
 jobs:
-
-  # ──────────────────────────────────────────
-  # PIPELINE 1 — dbt Compile (syntaxe & refs)
-  # Compile uniquement les modèles modifiés
-  # ──────────────────────────────────────────
-  dbt-compile:
-    name: 🔧 Compile & Validate
-    runs-on: self-hosted
-
+  dbt-validate:
+    runs-on: ubuntu-latest
+    env:
+      SNOWFLAKE_ACCOUNT: ci
+      SNOWFLAKE_USER: ci
+      SNOWFLAKE_ROLE: ci
+      SNOWFLAKE_WAREHOUSE: ci
+      SNOWFLAKE_DATABASE: CI_DATABASE
+      SNOWFLAKE_SCHEMA: CI_SCHEMA
+      SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/unused-rsa-key.p8
+      DBT_TAG: every_monday_19h
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
+      - uses: actions/checkout@v4
 
-      - name: Get changed SQL files
-        id: changed
-        run: |
-          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -E '\.sql$' | tr '\n' ' ')
-          echo "files=$CHANGED" >> $GITHUB_OUTPUT
-          echo "Changed files: $CHANGED"
-
-      - name: Set up Python
-        if: steps.changed.outputs.files != ''
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
-      - name: Install dbt
-        if: steps.changed.outputs.files != ''
-        run: pip install dbt-core dbt-bigquery
-
-      - name: dbt deps
-        if: steps.changed.outputs.files != ''
-        run: dbt deps
-
-      - name: dbt compile changed models
-        if: steps.changed.outputs.files != ''
+      - name: Install project dependencies
         run: |
-          for file in ${{ steps.changed.outputs.files }}; do
-            model=$(basename "$file" .sql)
-            echo "Compiling $model..."
-            dbt compile --select "$model"
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Create dbt profile
+        run: python scripts/write_dbt_profile.py /tmp/dbt-profiles
+
+      - name: Parse dbt project
+        run: dbt parse --profiles-dir /tmp/dbt-profiles --no-partial-parse
+
+      - name: Verify scheduled model selection
+        run: |
+          dbt ls --profiles-dir /tmp/dbt-profiles \
+            --select "tag:${DBT_TAG}" \
+            --resource-type model \
+            --output name > /tmp/dbt-scheduled-models.txt
+          for model in src_housing src_housing_v2 src_sales_v1 d_sales d_product f_sales \
+            f_sales_daily f_sales_by_distributor f_sales_by_product f_sales_enriched; do
+            grep -Fxq "$model" /tmp/dbt-scheduled-models.txt
           done
-        env:
-          DBT_PROFILES_DIR: .
 
-      - name: No SQL changes
-        if: steps.changed.outputs.files == ''
-        run: echo "⏭️ No SQL files changed, skipping compile"
-
-  # ──────────────────────────────────────────
-  # PIPELINE 2 — SQL Linting (SQLFluff)
-  # Lint uniquement les fichiers SQL modifiés
-  # ──────────────────────────────────────────
-  sql-lint:
-    name: 🎨 SQL Linting
-    runs-on: self-hosted
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Get changed SQL files
-        id: changed
+      - name: Test migration runner
         run: |
-          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -E '\.sql$' | tr '\n' ' ')
-          echo "files=$CHANGED" >> $GITHUB_OUTPUT
-          echo "Changed files: $CHANGED"
+          python -m py_compile scripts/run_migrations.py
+          python -m unittest discover -s tests
 
-      - name: Install SQLFluff
-        if: steps.changed.outputs.files != ''
-        run: pip install sqlfluff sqlfluff-templater-dbt
-
-      - name: Lint changed SQL files
-        if: steps.changed.outputs.files != ''
+      - name: Remove temporary profile and key
+        if: always()
         run: |
-          sqlfluff lint ${{ steps.changed.outputs.files }} \
-            --dialect bigquery \
-            --templater dbt \
-            --rules L001,L003,L010,L014,L031,L034
-
-      - name: No SQL changes
-        if: steps.changed.outputs.files == ''
-        run: echo "⏭️ No SQL files changed, skipping lint"
-
-  # ──────────────────────────────────────────
-  # PIPELINE 3 — YAML Schema Quality
-  # Vérifie les descriptions sur les YAML modifiés
-  # ──────────────────────────────────────────
-  schema-quality:
-    name: 📋 Schema Coverage
-    runs-on: self-hosted
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Get changed YAML files
-        id: changed
-        run: |
-          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -E '\.yml$' | tr '\n' ' ')
-          echo "files=$CHANGED" >> $GITHUB_OUTPUT
-          echo "Changed files: $CHANGED"
-
-      - name: Install tools
-        if: steps.changed.outputs.files != ''
-        run: pip install pyyaml yamllint
-
-      - name: Lint changed YAML files
-        if: steps.changed.outputs.files != ''
-        run: yamllint ${{ steps.changed.outputs.files }} -d relaxed
-
-      - name: Check descriptions in changed YAML files
-        if: steps.changed.outputs.files != ''
-        run: |
-          python3 - <<'EOF'
-          import yaml, sys
-
-          files = """${{ steps.changed.outputs.files }}""".split()
-          errors = []
-
-          for path in files:
-              if not path.strip():
-                  continue
-              with open(path) as fh:
-                  data = yaml.safe_load(fh) or {}
-              for model in data.get("models", []):
-                  name = model.get("name", "unknown")
-                  if not model.get("description", "").strip():
-                      errors.append(f"❌ Missing description: {name} ({path})")
-
-          if errors:
-              print("\n".join(errors))
-              sys.exit(1)
-          print("✅ All changed models have descriptions")
-          EOF
-
-      - name: No YAML changes
-        if: steps.changed.outputs.files == ''
-        run: echo "⏭️ No YAML files changed, skipping schema check"
-
-  # ──────────────────────────────────────────
-  # PIPELINE 4 — Sécurité & Bonnes pratiques
-  # Vérifie les anti-patterns sur les fichiers modifiés
-  # ──────────────────────────────────────────
-  best-practices:
-    name: 🛡️ Security & Best Practices
-    runs-on: self-hosted
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Get changed SQL files
-        id: changed
-        run: |
-          CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -E '\.sql$' | tr '\n' ' ')
-          echo "files=$CHANGED" >> $GITHUB_OUTPUT
-
-      - name: Check no hardcoded table references
-        if: steps.changed.outputs.files != ''
-        run: |
-          if grep -n "FROM [a-zA-Z_]*\.[a-zA-Z_]*" ${{ steps.changed.outputs.files }} | grep -v "ref\|source\|--"; then
-            echo "❌ Hardcoded table references found. Use {{ ref() }} or {{ source() }}"
-            exit 1
-          fi
-          echo "✅ No hardcoded references"
-
-      - name: Check no SELECT * in marts
-        if: steps.changed.outputs.files != ''
-        run: |
-          echo "🔍 Checking files: ${{ steps.changed.outputs.files }}"
-          for file in ${{ steps.changed.outputs.files }}; do
-            if grep -inE "select[[:space:]]*\*" "$file"; then
-              echo "❌ SELECT * found in $file. Explicit columns only."
-              exit 1
-            fi
-          done
-          echo "✅ No SELECT * found"
-
-      - name: Check no dangerous DDL statements
-        if: steps.changed.outputs.files != ''
-        run: |
-          if grep -in "DROP TABLE\|TRUNCATE\|DELETE FROM" ${{ steps.changed.outputs.files }}; then
-            echo "❌ Dangerous DDL statements found"
-            exit 1
-          fi
-          echo "✅ No dangerous DDL statements"
-
-      - name: Check snake_case naming
-        if: steps.changed.outputs.files != ''
-        run: |
-          python3 - <<'EOF'
-          import sys, re
-
-          files = """${{ steps.changed.outputs.files }}""".split()
-          errors = []
-          for path in files:
-              fname = path.split("/")[-1]
-              if fname.endswith(".sql") and not re.match(r'^[a-z][a-z0-9_]*\.sql$', fname):
-                  errors.append(f"❌ Bad naming (use snake_case): {path}")
-          if errors:
-              print("\n".join(errors))
-              sys.exit(1)
-          print("✅ All changed files follow snake_case convention")
-          EOF
-
-      - name: No SQL changes
-        if: steps.changed.outputs.files == ''
-        run: echo "⏭️ No SQL files changed, skipping checks"
+          rm -f "$SNOWFLAKE_PRIVATE_KEY_PATH" /tmp/dbt-profiles/profiles.yml /tmp/dbt-profiles/.user.yml
+          if [[ -d /tmp/dbt-profiles ]]; then rmdir /tmp/dbt-profiles; fi

@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: d_sales
+    description: "Dimension sales"
+    config:
+      schema: datamart_sales_feed
+      tags: ['every_monday_19h']
+
+  - name: d_product
+    description: "Dimension produit : référentiel dédupliqué avec le prix courant"
+    config:
+      schema: datamart_sales_feed
+      tags: ['every_monday_19h']
+    columns:
+      - name: product_id
+        data_tests:
+          - not_null
+          - unique
+
+  - name: f_sales
+    description: "Fait sales brut"
+    config:
+      schema: datamart_sales_feed
+      tags: ['every_30min', 'every_monday_19h']
+
+  - name: f_sales_daily
+    description: "Agrégation journalière des ventes (transactions, quantités, montants)"
+    config:
+      schema: datamart_sales_feed
+      tags: ['every_monday_19h']
+
+  - name: f_sales_by_distributor
+    description: "Agrégation mensuelle des ventes par distributeur"
+    config:
+      schema: datamart_sales_feed
+      tags: ['every_monday_19h']
+
+  - name: f_sales_by_product
+    description: "Agrégation mensuelle des ventes par produit et catégorie"
+    config:
+      schema: datamart_sales_feed
+      tags: ['every_monday_19h']
+
+  - name: f_sales_enriched
+    description: "Ventes enrichies par des jointures avec les dimensions et agrégats du datamart"
+    config:
+      schema: "{{ var('benchmark_schema', 'datamart_sales_feed') }}"
+      alias: "{{ var('benchmark_alias', 'f_sales_enriched') }}"
+      tags: ['every_monday_19h']

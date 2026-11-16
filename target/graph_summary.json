@@ -1,1 +1,0 @@
-{"_invocation_id": "3dec68d0-503a-4165-8946-cbe50ef91ceb", "linked": {"0": {"name": "source.data_pipeline.src_housing_ext.loyer", "type": "source", "succ": [2]}, "1": {"name": "model.data_pipeline.src_housing_v2", "type": "model"}, "2": {"name": "model.data_pipeline.src_housing", "type": "model", "succ": [1]}}}

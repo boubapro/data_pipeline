@@ -12,3 +12,9 @@ sources:
     database: SNOWFLAKE_LEARNING_DB
     tables:
       - name: loyer
+
+  - name: src_sales
+    schema: RAW
+    database: "{{ target.database }}"
+    tables:
+      - name: src_sales

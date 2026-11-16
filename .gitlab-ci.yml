@@ -7,15 +7,30 @@ stages:
   stage: deploy
   before_script:
     - pip install -r requirements.txt
-    - cp "$SNOWFLAKE_PRIVATE_KEY" /tmp/rsa_key.p8
-    - chmod 600 /tmp/rsa_key.p8
+    - |
+      set -eu
+      umask 077
+      : "${SNOWFLAKE_ACCOUNT:?Set SNOWFLAKE_ACCOUNT for this GitLab environment}"
+      : "${SNOWFLAKE_USER:?Set SNOWFLAKE_USER for this GitLab environment}"
+      : "${SNOWFLAKE_ROLE:?Set SNOWFLAKE_ROLE for this GitLab environment}"
+      : "${SNOWFLAKE_WAREHOUSE:?Set SNOWFLAKE_WAREHOUSE for this GitLab environment}"
+      : "${SNOWFLAKE_DATABASE:?Set SNOWFLAKE_DATABASE for this GitLab environment}"
+      : "${SNOWFLAKE_SCHEMA:?Set SNOWFLAKE_SCHEMA for this GitLab environment}"
+      : "${SNOWFLAKE_PRIVATE_KEY:?Set SNOWFLAKE_PRIVATE_KEY as a GitLab File variable}"
+      test -f "$SNOWFLAKE_PRIVATE_KEY"
+      cp "$SNOWFLAKE_PRIVATE_KEY" /tmp/rsa_key.p8
+      chmod 600 /tmp/rsa_key.p8
+    - python scripts/write_dbt_profile.py .dbt-profile
+  variables:
+    DBT_PROFILES_DIR: .dbt-profile
   script:
-    - dbt debug --profiles-dir . --target "$DBT_TARGET"
+    - dbt debug --profiles-dir .dbt-profile --target "$DBT_TARGET"
     - dbt deps
-    - dbt run --profiles-dir . --target "$DBT_TARGET"
-    - dbt test --profiles-dir . --target "$DBT_TARGET"
+    - dbt run --profiles-dir .dbt-profile --target "$DBT_TARGET"
+    - dbt test --profiles-dir .dbt-profile --target "$DBT_TARGET"
   after_script:
-    - rm -f /tmp/rsa_key.p8
+    - rm -f /tmp/rsa_key.p8 .dbt-profile/profiles.yml .dbt-profile/.user.yml
+    - rmdir .dbt-profile 2>/dev/null || true
 
 deploy-dev:
   extends: .dbt-deploy

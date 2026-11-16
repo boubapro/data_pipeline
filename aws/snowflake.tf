@@ -1,6 +1,6 @@
 provider "snowflake" {
-  organization_name = split("-", var.snowflake_account)[0]
-  account_name      = split("-", var.snowflake_account)[1]
+  organization_name = var.snowflake_organization_name
+  account_name      = var.snowflake_account_name
   user              = var.snowflake_user
   role              = var.snowflake_role
   authenticator     = "JWT"

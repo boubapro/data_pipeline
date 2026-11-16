@@ -1,78 +1,76 @@
 name: dbt run weekly
 
 on:
-  schedule:
-    - cron: '0 18 * * 1'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: dbt-weekly-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
-  DBT_TAG: monday_19h
-  SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+  DBT_TAG: every_monday_19h
 
 jobs:
   dbt-run:
     runs-on: ubuntu-latest
-
+    environment: dev
+    env:
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+      SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+      SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+      SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
+      SNOWFLAKE_PRIVATE_KEY_PATH: /tmp/rsa_key.p8
+      SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: pip
 
-      - name: Install dbt-snowflake
-        run: pip install --upgrade pip && pip install dbt-snowflake
-
-      - name: Créer la clé privée RSA
+      - name: Install dependencies
         run: |
-          printf '%s' "${{ secrets.SNOWFLAKE_PRIVATE_KEY }}" > /tmp/rsa_key.p8
-          chmod 600 /tmp/rsa_key.p8
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: dbt debug
+      - name: Write RSA private key
         env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-        run: dbt debug
+          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+        run: |
+          umask 077
+          printf '%s' "$SNOWFLAKE_PRIVATE_KEY" > "$SNOWFLAKE_PRIVATE_KEY_PATH"
 
-      - name: dbt deps
-        run: dbt deps
+      - name: Create dbt profile
+        run: python scripts/write_dbt_profile.py /tmp/dbt-profiles
 
-      - name: dbt run
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-        run: dbt run --select tag:${{ env.DBT_TAG }}
+      - name: Validate Snowflake connection
+        run: dbt debug --profiles-dir /tmp/dbt-profiles --target dev
 
-      - name: dbt test
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-        run: dbt test --select tag:${{ env.DBT_TAG }}
+      - name: Install dbt packages
+        run: dbt deps --profiles-dir /tmp/dbt-profiles
 
-      - name: dbt docs generate
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWFLAKE_SCHEMA: ${{ secrets.SNOWFLAKE_SCHEMA }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-        run: dbt docs generate
+      - name: Run and test scheduled models
+        run: |
+          dbt run --profiles-dir /tmp/dbt-profiles --target dev --select "tag:${DBT_TAG}"
+          dbt test --profiles-dir /tmp/dbt-profiles --target dev --select "tag:${DBT_TAG}"
 
-      - name: Supprimer la clé privée
+      - name: Generate dbt documentation
+        run: dbt docs generate --profiles-dir /tmp/dbt-profiles --target dev
+
+      - name: Upload dbt docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-docs
+          path: target/
+
+      - name: Remove RSA private key
         if: always()
-        run: rm -f /tmp/rsa_key.p8
+        run: |
+          rm -f "$SNOWFLAKE_PRIVATE_KEY_PATH" /tmp/dbt-profiles/profiles.yml /tmp/dbt-profiles/.user.yml
+          if [[ -d /tmp/dbt-profiles ]]; then rmdir /tmp/dbt-profiles; fi
