@@ -65,6 +65,21 @@ class MigrationRunnerTests(unittest.TestCase):
             [],
         )
 
+    def test_tracking_table_requires_database_and_schema(self):
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(EnvironmentError, "SNOWFLAKE_DATABASE"):
+                run_migrations.tracking_table_name()
+
+        with patch.dict(
+            os.environ,
+            {"SNOWFLAKE_DATABASE": "prod_db", "SNOWFLAKE_SCHEMA": "ops"},
+            clear=True,
+        ):
+            self.assertEqual(
+                run_migrations.tracking_table_name(),
+                '"PROD_DB"."OPS".MIGRATIONS_HISTORY',
+            )
+
     def test_sql_split_keeps_procedure_body_together(self):
         statements = run_migrations.split_sql_statements(
             "CREATE PROCEDURE p() AS $$\nBEGIN\nSELECT 1;\nEND;\n$$;\nSELECT 2;\n"

@@ -8,8 +8,10 @@ models:
 
 sources:
   - name: src_housing_ext
-    schema: PUBLIC
-    database: SNOWFLAKE_LEARNING_DB
+    # Emplacement de la table `loyer` : configurable par environnement.
+    # Par défaut : la base de la target dbt, schéma PUBLIC.
+    schema: "{{ env_var('HOUSING_SOURCE_SCHEMA', '') or 'PUBLIC' }}"
+    database: "{{ env_var('HOUSING_SOURCE_DATABASE', '') or target.database }}"
     tables:
       - name: loyer
 

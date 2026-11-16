@@ -76,6 +76,8 @@ resource "aws_ecs_task_definition" "dbt" {
       { name = "SNOWFLAKE_WAREHOUSE", value = var.snowflake_warehouse },
       { name = "SNOWFLAKE_ROLE", value = var.snowflake_role },
       { name = "DBT_TARGET", value = var.dbt_target },
+      { name = "HOUSING_SOURCE_DATABASE", value = var.housing_source_database },
+      { name = "HOUSING_SOURCE_SCHEMA", value = var.housing_source_schema },
       { name = "DBT_TAG", value = "every_monday_19h" }
     ]
     secrets = concat(

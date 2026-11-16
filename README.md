@@ -18,6 +18,10 @@ Dans **Settings > CI/CD > Protected environments**, protégez `production` et li
 
 Le profil dbt utilise les variables `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA` et `SNOWFLAKE_PRIVATE_KEY_PATH`. Pour une clé chiffrée, définissez aussi `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. Placez-les dans `.env` (non versionné), protégez ce fichier avec `chmod 600 .env`, puis lancez `./run_dbt.sh`; le script génère un profil temporaire protégé et restreint les permissions de la clé. Le script utilise la cible `dev` par défaut; `DBT_TARGET` permet de choisir `dev`, `int` ou `prod`, et `DBT_TAG` est facultatif.
 
+### Source housing
+
+La table `loyer` n'est plus recherchée dans une base codée en dur. Elle est lue dans la base de la target dbt (schéma `PUBLIC`) sauf si `HOUSING_SOURCE_DATABASE` et/ou `HOUSING_SOURCE_SCHEMA` sont définies (variables GitHub/GitLab, `.env` en local, variables Terraform `housing_source_database` / `housing_source_schema` pour ECS). Si la table se trouve toujours dans l'ancienne base d'apprentissage, définissez `HOUSING_SOURCE_DATABASE` avec son nom pour chaque environnement. Les variables Terraform `snowflake_database` et `snowflake_schema` n'ont plus de valeur par défaut, et `scripts/run_migrations.py` exige `SNOWFLAKE_DATABASE` et `SNOWFLAKE_SCHEMA`.
+
 ### Isolation des environnements
 
 La macro `generate_schema_name` isole les environnements par le code : en `prod`, les schémas gardent leur nom (ex. `DATAMART_SALES_FEED`) ; en `dev` et `int`, ils sont préfixés par la cible (ex. `DEV_DATAMART_SALES_FEED`, publié vers `DEV_DATAMART_SALES`). Un run non-prod ne peut donc pas écraser les tables de production, même sur la même base Snowflake. La tâche ECS planifiée définit `DBT_TARGET` via la variable Terraform `dbt_target` (défaut `prod`) ; `run_dbt.sh` utilise `dev` par défaut.

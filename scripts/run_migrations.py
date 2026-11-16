@@ -33,12 +33,22 @@ def quote_identifier(value: str) -> str:
 
 
 def tracking_table_name() -> str:
-    database = quote_identifier(os.getenv("SNOWFLAKE_DATABASE", "SNOWFLAKE_LEARNING_DB"))
-    schema = quote_identifier(os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC"))
+    """Table de suivi, dans la base et le schéma de la cible configurée.
+
+    Aucune valeur par défaut : une base absente doit échouer plutôt que de
+    migrer silencieusement un environnement qui n'est pas celui attendu.
+    """
+    missing = [
+        name
+        for name in ("SNOWFLAKE_DATABASE", "SNOWFLAKE_SCHEMA")
+        if not os.getenv(name)
+    ]
+    if missing:
+        raise EnvironmentError(f"Variables manquantes : {', '.join(missing)}")
+    database = quote_identifier(os.environ["SNOWFLAKE_DATABASE"])
+    schema = quote_identifier(os.environ["SNOWFLAKE_SCHEMA"])
     return f"{database}.{schema}.MIGRATIONS_HISTORY"
 
-
-TRACKING_TABLE = tracking_table_name()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -97,7 +107,7 @@ def file_checksum(path: Path) -> str:
 def ensure_tracking_table(cursor):
     cursor.execute(
         f"""
-        CREATE TABLE IF NOT EXISTS {TRACKING_TABLE} (
+        CREATE TABLE IF NOT EXISTS {tracking_table_name()} (
             migration_id VARCHAR NOT NULL,
             filename VARCHAR NOT NULL,
             checksum VARCHAR NOT NULL,
@@ -109,7 +119,7 @@ def ensure_tracking_table(cursor):
 
 def get_executed_migrations(cursor) -> dict[str, str]:
     cursor.execute(
-        f"SELECT filename, checksum FROM {TRACKING_TABLE} WHERE status = 'SUCCESS'"
+        f"SELECT filename, checksum FROM {tracking_table_name()} WHERE status = 'SUCCESS'"
     )
     return {row[0]: row[1] for row in cursor.fetchall()}
 
@@ -193,7 +203,7 @@ def run_sql_file(cursor, path: Path):
 def mark_as_executed(cursor, filename: str, checksum: str, status: str):
     cursor.execute(
         f"""
-        MERGE INTO {TRACKING_TABLE} AS target
+        MERGE INTO {tracking_table_name()} AS target
         USING (
             SELECT %s AS migration_id, %s AS filename, %s AS checksum, %s AS status
         ) AS source

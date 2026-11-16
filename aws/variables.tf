@@ -21,15 +21,25 @@ variable "snowflake_user" {
 }
 
 variable "snowflake_database" {
-  description = "Target Snowflake database"
+  description = "Target Snowflake database (no default: must be set per environment)"
   type        = string
-  default     = "SNOWFLAKE_LEARNING_DB" # non sensible, ok en default
 }
 
 variable "snowflake_schema" {
-  description = "Target Snowflake schema"
+  description = "Target Snowflake schema (no default: must be set per environment)"
   type        = string
-  default     = "PUBLIC"
+}
+
+variable "housing_source_database" {
+  description = "Database holding the housing source table; empty means the dbt target database"
+  type        = string
+  default     = ""
+}
+
+variable "housing_source_schema" {
+  description = "Schema holding the housing source table; empty means PUBLIC"
+  type        = string
+  default     = ""
 }
 
 variable "snowflake_warehouse" {
