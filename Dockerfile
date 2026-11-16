@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.15-slim
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
     && useradd --create-home --uid 10001 dbt
