@@ -81,6 +81,12 @@ variable "subnet_ids" {
   type        = list(string)
 }
 
+variable "alert_email" {
+  description = "Email notified when the scheduled dbt ECS task fails (empty disables the subscription)"
+  type        = string
+  default     = ""
+}
+
 variable "dbt_target" {
   description = "dbt target executed by the scheduled ECS task (dev, int or prod)"
   type        = string

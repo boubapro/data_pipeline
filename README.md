@@ -26,6 +26,13 @@ La table `loyer` n'est plus recherchée dans une base codée en dur. Elle est lu
 
 La macro `generate_schema_name` isole les environnements par le code : en `prod`, les schémas gardent leur nom (ex. `DATAMART_SALES_FEED`) ; en `dev` et `int`, ils sont préfixés par la cible (ex. `DEV_DATAMART_SALES_FEED`, publié vers `DEV_DATAMART_SALES`). Un run non-prod ne peut donc pas écraser les tables de production, même sur la même base Snowflake. La tâche ECS planifiée définit `DBT_TARGET` via la variable Terraform `dbt_target` (défaut `prod`) ; `run_dbt.sh` utilise `dev` par défaut.
 
+### Qualité, incrémental et alertes
+
+- Les modèles incrémentaux recalculent une fenêtre de recul (`incremental_lookback_months`, défaut 1 mois ; `incremental_lookback_days`, défaut 1 jour) pour absorber les données tardives, et acceptent les nouvelles colonnes (`append_new_columns`). Exemple : `dbt build --vars '{incremental_lookback_months: 3}'`.
+- Les tests `not_null` / `relationships` ajoutés sur `f_sales` sont en `severity: warn` : ils signalent sans bloquer la publication BI. Passez-les en `error` une fois les données source assainies.
+- Terraform crée un topic SNS et une règle EventBridge qui notifient (variable `alert_email`) l'échec de la tâche ECS planifiée, y compris un échec de démarrage.
+- L'image Docker tourne en utilisateur non-root et lance `/project/run_dbt.sh`.
+
 ### Publication BI
 
 Les pipelines utilisent `dbt build` (modèles + tests). La macro `safe_bi_swap` s'exécute en `on-run-end` et ne publie les tables du datamart vers le schéma BI que si **aucun** modèle ni test n'est en échec ou ignoré ; sinon la publication est annulée et les tables BI restent inchangées. Elle ne s'exécute plus après un simple `dbt run`.

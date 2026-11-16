@@ -2,6 +2,7 @@
   config(
     materialized='incremental',
     unique_key='SALE_DATE',
+    on_schema_change='append_new_columns',
     tags=['datamart']
   )
 }}
@@ -16,7 +17,12 @@ FROM {{ ref('src_sales_v1') }}
 
 {% if is_incremental() %}
 WHERE NOT EXISTS (SELECT 1 FROM {{ this }})
-   OR CREATED_AT >= (SELECT MAX(SALE_DATE) FROM {{ this }})
+   -- fenêtre de recul (jours) pour absorber les données tardives
+   OR CREATED_AT >= DATEADD(
+       'day',
+       -{{ var('incremental_lookback_days', 1) }},
+       (SELECT MAX(SALE_DATE) FROM {{ this }})
+   )
 {% endif %}
 
 GROUP BY 1

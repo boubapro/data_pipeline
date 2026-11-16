@@ -23,6 +23,23 @@ models:
     config:
       schema: datamart_sales_feed
       tags: ['every_30min', 'every_monday_19h']
+    columns:
+      - name: product_id
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+          - relationships:
+              arguments:
+                to: ref('d_product')
+                field: product_id
+              config:
+                severity: warn
+      - name: created_at
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
 
   - name: f_sales_daily
     description: "Agrégation journalière des ventes (transactions, quantités, montants)"

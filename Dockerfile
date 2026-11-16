@@ -1,16 +1,17 @@
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y git && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* && \
-    python -m pip install --upgrade pip
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && useradd --create-home --uid 10001 dbt
 
 WORKDIR /project
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY --chown=dbt:dbt . .
+RUN chmod +x run_dbt.sh && chown dbt:dbt /project
 
-COPY run_dbt.sh /usr/local/bin/run_dbt.sh
-RUN chmod +x /usr/local/bin/run_dbt.sh
+USER dbt
 
-CMD ["/usr/local/bin/run_dbt.sh"]
+# run_dbt.sh se place dans son propre dossier (/project) : il ne doit pas être
+# copié ailleurs, sinon scripts/ et le projet dbt sont introuvables.
+CMD ["bash", "/project/run_dbt.sh"]
